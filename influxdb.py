@@ -5,7 +5,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 import pandas as pd
 import os
 # InfluxDB settings
-token = os.environ.get("INFLUXDB_TOKEN")
+token = "UU4QPxIjcwcDOFVMMv0zfq5dIYGJC-vFFT1oSBEEQ7tUYNlXehU_F9EnBKQn4w3zYaQ17zv7X0JJjYVIRUORQQ=="
 org = "ieuni"
 url = "http://localhost:8086"
 bucket = "diana"
@@ -27,18 +27,16 @@ ORDER BY num_rentals desc
 LIMIT 5; 
 """
 
-# Connect to the MySQL database using SQLAlchemy
-with engine.connect() as connection:
-    result = connection.execute(query)
+data = pd.read_sql(query, engine)
 
-    for row in result:
-        customer_id = row['customer_id']  # Extracting the customer_id
-        num_rentals = row['num_rentals']  # Extracting the num_rentals
+points = []
+# Create a point for each data row
+for row in data.itertuples(index=False):
+    point = Point("rental").tag("customer_id", row.customer_id).field("num_rentals", row.num_rentals)
+    points.append(point)
 
-        # Create a point and write it to InfluxDB
-        point = (
-            Point("Top_Renting_Customers")
-            .tag("customer_id", str(customer_id))  # Storing customer_id as a tag
-            .field("num_rentals", num_rentals)  # Storing num_rentals as a field
-        )
-        write_api.write(bucket=bucket, org=org, record=point)
+# Write points to InfluxDB
+write_api.write(bucket=bucket, record=points, write_precision=WritePrecision.NS)
+
+# Close the client
+client.close()
